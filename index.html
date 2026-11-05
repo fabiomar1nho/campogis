@@ -1,0 +1,176 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b3d2e"><link rel="manifest" href="manifest.json"><link rel="icon" href="icon.svg"><title>CampoGIS</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
+<style>
+:root{color-scheme:dark;--bg:#0b0e10;--fg:#eef1ec;--sf:#14191cf2;--ln:#dfe6dc;--ac:#5fe39a;--ac2:#06150d;--mut:#9aa396;--mb:#05070a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;font:600 15px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--fg);background:var(--bg);overscroll-behavior:none}
+#map{position:fixed;inset:0;background:var(--mb)}
+.fl{position:fixed;z-index:1000;background:var(--sf);border:2px solid var(--ln);color:var(--fg)}
+#bar{top:calc(env(safe-area-inset-top,0px) + 8px);left:8px;right:8px;border-radius:12px;min-height:52px;padding:6px 12px;display:flex;align-items:center;gap:12px;font-variant-numeric:tabular-nums}
+#c{flex:1;font-size:16px;font-weight:800;cursor:pointer;min-height:48px;display:flex;align-items:center}
+#net{padding:4px 8px;border-radius:8px;font-size:12px;font-weight:800;background:var(--ac);color:var(--ac2)}#net.off{background:#b3261e;color:#fff}
+#fab{position:fixed;z-index:1000;right:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}
+.b{position:static;width:52px;height:52px;border-radius:12px;font:800 22px system-ui;cursor:pointer;padding:0}.b.on{background:var(--ac);color:var(--ac2)}
+.dr{left:0;right:0;bottom:0;max-height:62%;overflow:auto;border-radius:18px 18px 0 0;border-width:2px 0 0;padding:6px 16px calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateY(110%);transition:transform .2s;max-width:640px;margin:auto}
+.dr.open{transform:none}.grab{width:44px;height:5px;border-radius:3px;background:var(--mut);margin:4px auto 10px}
+h2{margin:0 0 8px;font-size:19px;padding-right:56px}.cl{position:absolute;right:8px;top:8px;width:48px;height:48px;border-radius:12px;font-size:20px}
+table{width:100%;border-collapse:collapse;margin:6px 0}td{padding:7px 4px;border-bottom:1px solid #8884;vertical-align:top;word-break:break-word}td:first-child{color:var(--mut);width:36%}
+.desc{margin:8px 0;font-weight:500;overflow-wrap:anywhere}.desc a{color:var(--ac)}
+.btn,button,select{font:inherit;font-weight:800;color:var(--fg);background:var(--sf);border:2px solid var(--ln);border-radius:12px;min-height:48px;padding:0 14px}
+.pri{display:flex;width:100%;align-items:center;justify-content:center;min-height:56px;background:var(--ac);color:var(--ac2);border-color:var(--ac);font-size:17px;cursor:pointer;margin-top:6px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px}
+.ly{display:flex;align-items:center;gap:10px;min-height:60px;border-bottom:1px solid #8884}.ly .nm{flex:1;min-width:0;cursor:pointer}.ly b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ly small,.mut{color:var(--mut);font-weight:500}
+.ly input[type=checkbox]{width:30px;height:30px;accent-color:var(--ac)}.ly input[type=range]{width:84px;accent-color:var(--ac);height:48px}.ly .x{width:48px;padding:0}
+#toast{position:fixed;z-index:2000;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateX(-50%);max-width:90%;background:#10130f;color:#fff;padding:12px 16px;border-radius:12px;font-weight:700}
+.lbl{background:none;border:0}.lbl span{position:absolute;white-space:nowrap;font:800 13px system-ui;color:#111;text-shadow:-1.5px 0 #fff,1.5px 0 #fff,0 -1.5px #fff,0 1.5px #fff,-1px -1px #fff,1px 1px #fff,-1px 1px #fff,1px -1px #fff;pointer-events:none}
+.lbl.p span{left:13px;top:-9px}.lbl.g span{transform:translate(-50%,-50%)}body.nolbl .lbl{display:none}
+</style></head><body>
+<div id="map"></div>
+<div id="bar" class="fl"><div id="c" title="Toque para trocar o formato">—</div><span id="a">GPS —</span><span id="net">ONLINE</span></div>
+<div id="fab"><button class="b fl" id="zi" aria-label="Aumentar zoom">+</button><button class="b fl" id="zo" aria-label="Diminuir zoom">−</button><button class="b fl" id="gp" aria-label="Centralizar GPS">◎</button><button class="b fl on" id="lb" aria-label="Rótulos">Aa</button><button class="b fl" id="ly" aria-label="Camadas">≡</button></div>
+<div id="sheet" class="fl dr"><div class="grab"></div><button class="cl" id="sx" aria-label="Fechar">✕</button><h2 id="st"></h2><table id="tb"></table><div class="desc" id="ds"></div><button class="pri" id="cp">📋 COPIAR DESCRIÇÃO</button></div>
+<div id="panel" class="fl dr"><div class="grab"></div><h2>Camadas</h2>
+<label class="btn pri" for="fi">+ Importar GeoTIFF (.tif / .tiff)</label><input id="fi" type="file" multiple accept=".tif,.tiff,image/tiff" hidden>
+<label class="btn pri" for="fk">+ Importar KML / KMZ</label><input id="fk" type="file" multiple accept=".kml,.kmz" hidden>
+<div id="ll"></div>
+<div class="row"><span>Coordenadas</span><select id="cf"><option value="0">Grau decimal</option><option value="1">Graus-min-seg</option><option value="2">UTM</option></select></div></div>
+<div id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
+<script>
+const $=q=>document.querySelector(q),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast=m=>{const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,4000)};
+const DB=new Promise((res,rej)=>{const r=indexedDB.open('campogis-db-v2',1);r.onupgradeneeded=()=>{r.result.createObjectStore('files');r.result.createObjectStore('state')};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const tx=async(s,m,f)=>{const d=await DB;return new Promise((res,rej)=>{const t=d.transaction(s,m),q=f(t.objectStore(s));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error)})};
+const dbGet=(s,k)=>tx(s,'readonly',o=>o.get(k)),dbPut=(s,k,v)=>tx(s,'readwrite',o=>o.put(v,k)),dbDel=(s,k)=>tx(s,'readwrite',o=>o.delete(k));
+let S={layers:[],view:null,theme:'light',fmt:0,labels:true},R={};
+const WGS='+proj=longlat +datum=WGS84 +no_defs';
+const map=L.map('map',{zoomControl:false,attributionControl:false,zoomSnap:.5,minZoom:2,maxZoom:23,center:[-15,-52],zoom:4,renderer:L.canvas({padding:.5,tolerance:14})});
+map.createPane('tif').style.zIndex=250;map.createPane('labels').style.zIndex=650;
+const save=()=>{const c=map.getCenter();S.view={c:[c.lat,c.lng],z:map.getZoom()};dbPut('state','app',S)};
+function crsDef(c){if([4326,4674,4258,4979].includes(c))return WGS;if(c==3857||c==900913)return'+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +no_defs';let z,s;
+ if(c>=32601&&c<=32660)z=c-32600;else if(c>=32701&&c<=32760){z=c-32700;s=1}else if(c>=31965&&c<=31976)z=c-31954;else if(c>=31977&&c<=31985){z=c-31960;s=1}
+ return z?`+proj=utm +zone=${z}${s?' +south':''} +datum=WGS84 +units=m +no_defs`:null}
+class Tif{
+ constructor(r){this.rec=r;this.tok=0;this.draw=this.draw.bind(this)}
+ async init(){
+  const t=await GeoTIFF.fromBlob(await dbGet('files',this.rec.id)),im=this.im=await t.getImage(),k=im.getGeoKeys()||{},code=k.ProjectedCSTypeGeoKey||k.GeographicTypeGeoKey,bb=this.bb=im.getBoundingBox();
+  let d=crsDef(code);if(!d&&Math.abs(bb[0])<=180&&Math.abs(bb[2])<=180&&Math.abs(bb[1])<=90&&Math.abs(bb[3])<=90)d=WGS;
+  if(!d)throw Error('CRS não suportado (EPSG:'+code+'). Exporte em WGS84 ou UTM.');
+  this.def=d;this.W=im.getWidth();this.H=im.getHeight();this.nd=im.getGDALNoData();this.ns=im.getSamplesPerPixel();this.sb=im.getSampleByteSize(0);this.f=proj4(WGS,d);this.lv=[{im,W:this.W,H:this.H}];try{const n=await t.getImageCount();for(let i=1;i<n;i++){const o=await t.getImage(i);if(o.getWidth()<this.W&&o.getSamplesPerPixel()==this.ns&&o.getSampleByteSize(0)==this.sb&&!((o.fileDirectory.NewSubfileType||0)&4))this.lv.push({im:o,W:o.getWidth(),H:o.getHeight()})}}catch{}this.lv.sort((a,b)=>b.W-a.W);
+  const c=[[bb[0],bb[1]],[bb[2],bb[1]],[bb[2],bb[3]],[bb[0],bb[3]]].map(p=>this.f.inverse(p));this.bounds=L.latLngBounds(c.map(p=>[p[1],p[0]]));
+  if(this.ns<3&&this.sb>1){const o=await im.readRasters({width:256,height:Math.max(1,Math.round(256*this.H/this.W)),samples:[0]}),a=o[0];let lo=1/0,hi=-1/0;for(const v of a){if(v===this.nd||v!==v)continue;if(v<lo)lo=v;if(v>hi)hi=v}this.lo=lo;this.hi=hi>lo?hi:lo+1}
+ }
+  async draw(){
+  if(!this.on)return;const tok=++this.tok,sz=map.getSize(),dpr=window.devicePixelRatio||1,b=map.getBounds().pad(.1),P=L.Projection.SphericalMercator,p0=P.project(b.getSouthWest()),p1=P.project(b.getNorthEast()),bb=this.bb,f=this.f,id=this.def===WGS,Rr=6378137;
+  let mnx=1/0,mxx=-1/0,mny=1/0,mxy=-1/0;
+  for(let i=0;i<=4;i++)for(let j=0;j<=4;j++){const la=b.getSouth()+(b.getNorth()-b.getSouth())*i/4,lo=b.getWest()+(b.getEast()-b.getWest())*j/4,q=id?[lo,la]:f.forward([lo,la]);mnx=Math.min(mnx,q[0]);mxx=Math.max(mxx,q[0]);mny=Math.min(mny,q[1]);mxy=Math.max(mxy,q[1])}
+  const X0=Math.max(mnx,bb[0]),X1=Math.min(mxx,bb[2]),Y0=Math.max(mny,bb[1]),Y1=Math.min(mxy,bb[3]);
+  if(X0>=X1||Y0>=Y1){this.clear();return}
+  const mw=p1.x-p0.x,mh=p1.y-p0.y,cw=Math.min(Math.round(sz.x*1.2*dpr),3072),ch=Math.max(1,Math.round(cw*mh/mw));
+  const spp=(mxx-mnx)/(((bb[2]-bb[0])/this.W)*cw);let lv=this.lv[0];for(const l of this.lv)if(this.W/l.W<=spp)lv=l;
+  const W=lv.W,H=lv.H,im0=lv.im,pw=(bb[2]-bb[0])/W,ph=(bb[3]-bb[1])/H,x0=Math.max(0,Math.floor((X0-bb[0])/pw)),x1=Math.min(W,Math.ceil((X1-bb[0])/pw)),y0=Math.max(0,Math.floor((bb[3]-Y1)/ph)),y1=Math.min(H,Math.ceil((bb[3]-Y0)/ph));
+  const wx=x1-x0,wy=y1-y0;if(wx<=0||wy<=0){this.clear();return}
+  const n=this.ns>=3?3:1;let rw=wx,rh=wy;if(rw*rh*n>16e6){const k=Math.sqrt(16e6/(rw*rh*n));rw=Math.max(1,Math.floor(rw*k));rh=Math.max(1,Math.floor(rh*k))}
+  const d=await im0.readRasters({window:[x0,y0,x1,y1],width:rw,height:rh,samples:n==3?[0,1,2]:[0],interleave:true,resampleMethod:'nearest'});
+  if(tok!==this.tok)return;
+  const wMinX=bb[0]+x0*pw,wMaxY=bb[3]-y0*ph,mxw=wx*pw,myh=wy*ph,cv=document.createElement('canvas');
+  cv.width=cw;cv.height=ch;const cx=cv.getContext('2d'),im=cx.createImageData(cw,ch),o=im.data,sb=this.sb,sc=n==3&&sb==2?1/257:1,lo=this.lo,hi=this.hi,nd=this.nd,G=32,G1=G+1;
+  let GX,GY;if(!id){GX=new Float64Array(G1*G1);GY=new Float64Array(G1*G1);for(let bj=0;bj<=G;bj++){const la=(2*Math.atan(Math.exp((p1.y-bj/G*mh)/Rr))-Math.PI/2)*180/Math.PI;for(let ai=0;ai<=G;ai++){const q=f.forward([(p0.x+ai/G*mw)/Rr*180/Math.PI,la]);GX[bj*G1+ai]=q[0];GY[bj*G1+ai]=q[1]}}}
+  for(let j=0;j<ch;j++){const lat=(2*Math.atan(Math.exp((p1.y-(j+.5)/ch*mh)/Rr))-Math.PI/2)*180/Math.PI,fy0=(j+.5)/ch*G,bj=Math.min(G-1,fy0|0),ty=fy0-bj;
+   for(let i=0;i<cw;i++){let X,Y;
+    if(id){X=(p0.x+(i+.5)/cw*mw)/Rr*180/Math.PI;Y=lat}else{const fx0=(i+.5)/cw*G,ai=Math.min(G-1,fx0|0),tx=fx0-ai,k0=bj*G1+ai,k1=k0+G1;X=(GX[k0]*(1-tx)+GX[k0+1]*tx)*(1-ty)+(GX[k1]*(1-tx)+GX[k1+1]*tx)*ty;Y=(GY[k0]*(1-tx)+GY[k0+1]*tx)*(1-ty)+(GY[k1]*(1-tx)+GY[k1+1]*tx)*ty}
+    const fx=(X-wMinX)/mxw*rw,fy=(wMaxY-Y)/myh*rh;if(fx<0||fy<0||fx>=rw||fy>=rh)continue;
+    const k=((fy|0)*rw+(fx|0))*n,q=(j*cw+i)*4;let r,g,bl;
+    if(n==3){r=d[k]*sc;g=d[k+1]*sc;bl=d[k+2]*sc;if(nd!=null&&d[k]===nd&&d[k+1]===nd&&d[k+2]===nd)continue}
+    else{const v=d[k];if(v===nd||v!==v)continue;r=g=bl=sb==1?v:(v-lo)/(hi-lo)*255}
+    o[q]=r;o[q+1]=g;o[q+2]=bl;o[q+3]=255}}
+  cx.putImageData(im,0,0);
+  const url=await new Promise(r=>cv.toBlob(x=>r(URL.createObjectURL(x))));if(tok!==this.tok){URL.revokeObjectURL(url);return}
+  const old=this.ov,ov=this.ov=L.imageOverlay(url,b,{pane:'tif',opacity:this.rec.opacity,interactive:false}).addTo(map);
+  ov.once('load',()=>{if(old){old.remove();URL.revokeObjectURL(old._url)}})
+ }
+ clear(){if(this.ov){this.ov.remove();URL.revokeObjectURL(this.ov._url);this.ov=null}}
+ show(){this.on=true;map.on('moveend',this.draw);this.draw()}
+ hide(){this.on=false;map.off('moveend',this.draw);this.tok++;this.clear()}
+ setOp(v){this.rec.opacity=v;this.ov&&this.ov.setOpacity(v)}
+ fit(){map.fitBounds(this.bounds)}
+}
+const cen=r=>{let a=0,x=0,y=0;for(let i=0;i<r.length-1;i++){const[x0,y0]=r[i],[x1,y1]=r[i+1],c=x0*y1-x1*y0;a+=c;x+=(x0+x1)*c;y+=(y0+y1)*c}return a?[x/(3*a),y/(3*a)]:r[0]};
+function walk(g,fn){if(!g)return;const t=g.type,c=g.coordinates;if(t=='Point')fn('p',c);else if(t=='MultiPoint')c.forEach(p=>fn('p',p));else if(t=='Polygon')fn('g',cen(c[0]));else if(t=='MultiPolygon')c.forEach(p=>fn('g',cen(p[0])));else if(t=='GeometryCollection')g.geometries.forEach(x=>walk(x,fn))}
+let sheetAt=0;
+class Kml{
+ constructor(r){this.rec=r}
+ async init(){
+  const gj=toGeoJSON.kml(new DOMParser().parseFromString(await dbGet('files',this.rec.id),'text/xml'));
+  const pt={color:'#fff',weight:3,fillColor:'#e8590c',fillOpacity:1,radius:9};
+  this.g=L.geoJSON(gj,{pointToLayer:(f,ll)=>L.circleMarker(ll,pt),
+   style:f=>{const p=f.properties||{},t=f.geometry&&f.geometry.type||'';if(/Point/.test(t))return pt;if(/Line/.test(t))return{color:p.stroke||'#0b5fff',weight:Math.max(3,p['stroke-width']||3)};return{color:p.stroke||'#b3261e',weight:3,fillColor:p.fill||'#f6c744',fillOpacity:p['fill-opacity']??.3}},
+   onEachFeature:(f,l)=>l.on('click',()=>{sheetAt=Date.now();openSheet(f)})});
+  this.lb=L.layerGroup();
+  gj.features.forEach(f=>{const n=f.properties&&f.properties.name;if(!n)return;walk(f.geometry,(t,c)=>L.marker([c[1],c[0]],{pane:'labels',interactive:false,keyboard:false,icon:L.divIcon({className:'lbl '+t,html:'<span>'+esc(n)+'</span>',iconSize:[0,0]})}).addTo(this.lb))})
+ }
+ show(){this.g.addTo(map);this.lb.addTo(map)}
+ hide(){this.g.remove();this.lb.remove()}
+ fit(){const b=this.g.getBounds();b.isValid()&&map.fitBounds(b.pad(.1),{maxZoom:19})}
+}
+const HID=new Set('name description styleUrl styleHash styleMapHash stroke stroke-opacity stroke-width fill fill-opacity icon icon-offset icon-opacity label-color scale visibility id gx_media_links begin end timestamp altitudeMode tessellate extrude drawOrder marker-color'.split(' '));
+function clean(h){const d=new DOMParser().parseFromString(h,'text/html');d.querySelectorAll('script,style,iframe,object,embed,link,meta,form,base,img,svg,video,audio').forEach(e=>e.remove());
+ d.body.querySelectorAll('*').forEach(e=>{[...e.attributes].forEach(a=>{const n=a.name.toLowerCase();if(n.startsWith('on')||n=='style'||(/^(href|src|xlink:href)$/.test(n)&&/^\s*(javascript|data|vbscript):/i.test(a.value)))e.removeAttribute(a.name)});if(e.tagName=='A'){e.target='_blank';e.rel='noopener noreferrer'}});return d.body}
+let curTxt='';
+function openSheet(f){const p=f.properties||{};$('#st').textContent=p.name||'Sem nome';
+ $('#tb').innerHTML=Object.keys(p).filter(k=>!HID.has(k)&&p[k]!==''&&p[k]!=null&&typeof p[k]!='object').map(k=>`<tr><td>${esc(k)}</td><td>${esc(p[k])}</td></tr>`).join('')+`<tr><td>Geometria</td><td>${esc(f.geometry&&f.geometry.type)}</td></tr>`;
+ const ds=$('#ds');ds.replaceChildren();
+ if(p.description){const nl=String(p.description).replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d)>/gi,'$&\n');ds.append(...clean(String(p.description)).childNodes);curTxt=clean(nl).textContent.trim()}
+ else curTxt=Object.keys(p).filter(k=>!HID.has(k)&&p[k]!==''&&typeof p[k]!='object').map(k=>k+': '+p[k]).join('\n');
+ if(!curTxt)curTxt=p.name||'';
+ $('#panel').classList.remove('open');$('#sheet').classList.add('open')}
+$('#cp').onclick=async()=>{try{await navigator.clipboard.writeText(curTxt)}catch{const a=document.createElement('textarea');a.value=curTxt;document.body.append(a);a.select();document.execCommand('copy');a.remove()}toast('Descrição copiada')};
+const closeAll=()=>{$('#sheet').classList.remove('open');$('#panel').classList.remove('open')};
+$('#sx').onclick=closeAll;map.on('click',()=>{if(Date.now()-sheetAt>80)closeAll()});
+async function load(rec){const o=rec.type=='tif'?new Tif(rec):new Kml(rec);await o.init();R[rec.id]=o;if(rec.on)o.show()}
+async function imp(files){for(const f of files){const ext=f.name.split('.').pop().toLowerCase(),rec={id:'l'+Date.now()+Math.random().toString(36).slice(2,6),name:f.name.replace(/\.[^.]+$/,''),type:/^tiff?$/.test(ext)?'tif':'kml',on:true,opacity:1};
+ try{if(rec.type=='tif')await dbPut('files',rec.id,f);else if(ext=='kml')await dbPut('files',rec.id,await f.text());
+  else if(ext=='kmz'){const z=await JSZip.loadAsync(f),ns=Object.keys(z.files),n=ns.find(n=>/(^|\/)doc\.kml$/i.test(n))||ns.find(n=>/\.kml$/i.test(n));if(!n)throw Error('KMZ sem arquivo KML');await dbPut('files',rec.id,await z.files[n].async('string'))}
+  else throw Error('formato não suportado');
+  await load(rec);S.layers.push(rec);R[rec.id].fit();save();renderPanel()}catch(e){await dbDel('files',rec.id);toast(f.name+': '+e.message)}}}
+['#fi','#fk'].forEach(q=>$(q).onchange=async e=>{toast('Importando…');await imp([...e.target.files]);e.target.value=''});
+function renderPanel(){$('#ll').innerHTML=S.layers.length?S.layers.map(r=>`<div class="ly" data-id="${r.id}"><input type="checkbox" data-a="on" ${r.on?'checked':''} aria-label="Visível"><div class="nm" data-a="fit"><b>${esc(r.name)}</b><small>${r.type=='tif'?'GeoTIFF':'KML/KMZ'}</small></div>${r.type=='tif'?`<input type="range" data-a="op" min="0" max="100" value="${Math.round(r.opacity*100)}" aria-label="Opacidade">`:''}<button class="x" data-a="del" aria-label="Remover">✕</button></div>`).join(''):'<p class="mut">Nenhuma camada. Importe um mapa GeoTIFF (.tif/.tiff) ou um arquivo KML/KMZ.</p>'}
+$('#ll').addEventListener('input',e=>{const a=e.target.dataset.a,id=e.target.closest('.ly').dataset.id,r=S.layers.find(x=>x.id==id),o=R[id];if(a=='op'&&o){o.setOp(e.target.value/100);clearTimeout(save.t);save.t=setTimeout(save,400)}if(a=='on'){r.on=e.target.checked;o&&(r.on?o.show():o.hide());save()}});
+$('#ll').addEventListener('click',async e=>{const a=e.target.closest('[data-a]');if(!a)return;const id=a.closest('.ly').dataset.id,o=R[id];
+ if(a.dataset.a=='fit'&&o){o.fit();closeAll()}
+ if(a.dataset.a=='del'&&confirm('Remover esta camada e seu arquivo salvo?')){o&&o.hide();delete R[id];S.layers=S.layers.filter(x=>x.id!=id);await dbDel('files',id);save();renderPanel()}});
+$('#ly').onclick=()=>{renderPanel();$('#sheet').classList.remove('open');$('#panel').classList.toggle('open')};
+const dms=(v,p,n)=>{const h=v<0?n:p;v=Math.abs(v);const d=v|0,m=((v-d)*60)|0,s=((v-d)*60-m)*60;return`${d}°${String(m).padStart(2,'0')}′${s.toFixed(2).padStart(5,'0')}″${h}`};
+function fmt(ll){const f=+S.fmt;if(f==0)return ll.lat.toFixed(6)+', '+ll.lng.toFixed(6);if(f==1)return dms(ll.lat,'N','S')+' '+dms(ll.lng,'E','W');const z=Math.floor((ll.lng+180)/6)+1,s=ll.lat<0,q=proj4(WGS,`+proj=utm +zone=${z}${s?' +south':''} +datum=WGS84 +units=m`,[ll.lng,ll.lat]);return`${z}${s?'S':'N'} ${Math.round(q[0])} E ${Math.round(q[1])} N`}
+$('#cf').onchange=e=>{S.fmt=+e.target.value;upd();save()};$('#c').onclick=()=>{S.fmt=(S.fmt+1)%3;$('#cf').value=S.fmt;upd();save()};
+let pos=null,wid=null,follow=false,prev=null,hd=null;
+const gm=L.marker([0,0],{interactive:false,keyboard:false,zIndexOffset:1000,icon:L.divIcon({className:'',iconSize:[40,40],iconAnchor:[20,20],html:'<div id="arr" style="width:40px;height:40px"><svg viewBox="-20 -20 40 40" width="40" height="40"><circle id="dot" r="9" fill="#0b5fff" stroke="#fff" stroke-width="3.5"/><path id="ar" d="M0-17 11 12 0 6-11 12Z" fill="#0b5fff" stroke="#fff" stroke-width="3" stroke-linejoin="round" display="none"/></svg></div>'})});
+const gc=L.circle([0,0],{radius:1,color:'#0b5fff',weight:1.5,fillOpacity:.15,interactive:false});
+const brg=(a,b)=>{const r=Math.PI/180,y=Math.sin((b.lng-a.lng)*r)*Math.cos(b.lat*r),x=Math.cos(a.lat*r)*Math.sin(b.lat*r)-Math.sin(a.lat*r)*Math.cos(b.lat*r)*Math.cos((b.lng-a.lng)*r);return(Math.atan2(y,x)/r+360)%360};
+function upd(){$('#c').textContent=fmt(pos?pos.ll:map.getCenter());$('#a').textContent=pos?'±'+Math.round(pos.ac)+' m':'GPS —'}
+function onPos(p){const c=p.coords,ll=L.latLng(c.latitude,c.longitude),first=!pos;
+ if(c.heading!=null&&!isNaN(c.heading))hd=c.heading;else if(prev&&prev.distanceTo(ll)>4){hd=brg(prev,ll)}
+ if(!prev||prev.distanceTo(ll)>4)prev=ll;pos={ll,ac:c.accuracy};
+ gm.setLatLng(ll);gc.setLatLng(ll).setRadius(c.accuracy);if(first){gc.addTo(map);gm.addTo(map)}
+ const a=$('#arr');if(a){a.style.transform=`rotate(${hd||0}deg)`;$('#ar').setAttribute('display',hd!=null?'inline':'none');$('#dot').setAttribute('display',hd!=null?'none':'inline')}
+ upd();if(follow||first&&$('#gp').dataset.k)map.setView(ll,Math.max(map.getZoom(),first?17:0),{animate:true})}
+function setFollow(v){follow=v;$('#gp').classList.toggle('on',v)}
+$('#gp').onclick=()=>{if(wid==null){if(!navigator.geolocation)return toast('GPS indisponível neste dispositivo');$('#gp').dataset.k=1;wid=navigator.geolocation.watchPosition(onPos,e=>toast('GPS: '+e.message),{enableHighAccuracy:true,maximumAge:1000,timeout:30000});setFollow(true);return}
+ if(follow)setFollow(false);else{setFollow(true);pos&&map.setView(pos.ll,Math.max(map.getZoom(),16))}};
+map.on('dragstart',()=>setFollow(false));map.on('move',()=>{if(!pos)upd()});
+$('#zi').onclick=()=>map.zoomIn();$('#zo').onclick=()=>map.zoomOut();
+$('#lb').onclick=()=>{S.labels=!S.labels;document.body.classList.toggle('nolbl',!S.labels);$('#lb').classList.toggle('on',S.labels);save()};
+const net=()=>{const n=$('#net');n.textContent=navigator.onLine?'ONLINE':'OFFLINE';n.className=navigator.onLine?'':'off'};addEventListener('online',net);addEventListener('offline',net);net();
+map.on('moveend',()=>{clearTimeout(save.m);save.m=setTimeout(save,500)});
+(async()=>{
+ try{const s=await dbGet('state','app');if(s)S=Object.assign(S,s)}catch{}
+ $('#cf').value=S.fmt;document.body.classList.toggle('nolbl',!S.labels);$('#lb').classList.toggle('on',S.labels);
+ if(S.view)map.setView(S.view.c,S.view.z,{animate:false});upd();
+ for(const r of S.layers){try{await load(r)}catch(e){toast(r.name+': '+e.message)}}
+ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script></body></html>
